@@ -1,245 +1,500 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <base target="_top">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'game-primary': '#4f46e5',
-              'game-secondary': '#818cf8',
-            }
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quest 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'neon-cyan': '#00f3ff',
+            'neon-purple': '#bc13fe',
+            'neon-gold': '#ffd700',
+            'glass': 'rgba(255, 255, 255, 0.05)',
+            'glass-hover': 'rgba(255, 255, 255, 0.1)',
+          },
+          fontFamily: {
+            'mono': ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
           }
         }
       }
-    </script>
-    <style>
-      .glass {
-        background: rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
-    </style>
-  </head>
-  <body class="bg-gray-900 text-white font-sans min-h-screen p-4 sm:p-8">
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0f172a; /* slate-900 */
+      background-image: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0f172a 100%);
+      color: #e2e8f0;
+    }
+    .glass-panel {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    }
+    .neon-text-cyan {
+      text-shadow: 0 0 10px #00f3ff, 0 0 20px #00f3ff;
+    }
+    .neon-border-cyan {
+      box-shadow: 0 0 5px #00f3ff;
+      border-color: #00f3ff;
+    }
+    .neon-border-purple {
+      box-shadow: 0 0 5px #bc13fe;
+      border-color: #bc13fe;
+    }
+    .neon-border-gold {
+      box-shadow: 0 0 5px #ffd700;
+      border-color: #ffd700;
+    }
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="min-h-screen font-mono overflow-x-hidden pb-20">
 
-    <!-- Header / Stats -->
-    <header class="max-w-4xl mx-auto mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="glass p-4 rounded-xl text-center">
-        <div class="text-sm text-gray-400">Total Points</div>
-        <div class="text-3xl font-bold text-yellow-400" id="stat-points">0</div>
+  <!-- Setup Warning -->
+  <div id="setup-warning" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
+    <div class="glass-panel p-8 rounded-xl max-w-md text-center">
+      <h2 class="text-2xl font-bold text-red-500 mb-4">Database Not Found</h2>
+      <p class="mb-6">Please run the 'setup' function in the Apps Script Editor to initialize DB_Projects and DB_Tasks.</p>
+    </div>
+  </div>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900 transition-opacity duration-500">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-neon-cyan mx-auto mb-4"></div>
+      <h2 class="text-xl font-bold tracking-widest text-neon-cyan">LOADING QUEST DATA...</h2>
+    </div>
+  </div>
+
+  <!-- Hero Section -->
+  <header class="p-6">
+    <div class="glass-panel rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 max-w-5xl mx-auto">
+      <!-- User Info -->
+      <div class="flex items-center gap-4">
+        <div class="relative w-20 h-20 flex items-center justify-center bg-slate-800 rounded-full border-2 border-neon-purple shadow-[0_0_15px_rgba(188,19,254,0.5)]">
+          <span class="text-3xl font-bold text-white" id="user-level">1</span>
+          <div class="absolute -bottom-2 text-xs bg-neon-purple text-white px-2 py-0.5 rounded-full">Lvl</div>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-white tracking-wider">COMMANDER</h1>
+          <div class="text-sm text-gray-400">XP: <span id="current-xp" class="text-neon-cyan">0</span> / <span id="next-level-xp">100</span></div>
+          <!-- XP Bar -->
+          <div class="w-48 h-2 bg-slate-700 rounded-full mt-2 overflow-hidden">
+            <div id="xp-bar" class="h-full bg-gradient-to-r from-neon-purple to-neon-cyan w-0 transition-all duration-1000"></div>
+          </div>
+        </div>
       </div>
-      <div class="glass p-4 rounded-xl text-center">
-        <div class="text-sm text-gray-400">Level</div>
-        <div class="text-3xl font-bold text-game-secondary" id="stat-level">1</div>
+
+      <!-- Stats -->
+      <div class="text-right hidden md:block">
+        <div class="text-sm text-gray-400 uppercase tracking-widest">Completed Quests</div>
+        <div class="text-4xl font-bold text-neon-gold drop-shadow-md" id="completed-count">0</div>
       </div>
-      <div class="glass p-4 rounded-xl text-center">
-        <div class="text-sm text-gray-400">Streak</div>
-        <div class="text-3xl font-bold text-orange-500"><span id="stat-streak">0</span> Days</div>
-      </div>
-      <div class="glass p-4 rounded-xl text-center flex items-center justify-center">
-        <button onclick="openModal()" class="bg-game-primary hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition transform hover:scale-105">
-          + New Task
+    </div>
+  </header>
+
+  <!-- Project Filter (Pills) -->
+  <section class="max-w-5xl mx-auto px-6 mb-6">
+    <div class="flex gap-4 overflow-x-auto py-2 no-scrollbar" id="project-filter-container">
+      <button onclick="filterTasks('all')" class="project-pill active px-4 py-2 rounded-full text-sm font-bold bg-slate-700 text-white hover:bg-slate-600 transition border border-transparent focus:border-neon-cyan whitespace-nowrap">
+        ALL SYSTEMS
+      </button>
+      <!-- Dynamic Project Pills injected here -->
+    </div>
+  </section>
+
+  <!-- Quest Board -->
+  <main class="max-w-5xl mx-auto px-6 pb-20">
+    <div id="quest-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Tasks injected here -->
+    </div>
+
+    <div id="empty-state" class="hidden text-center py-20 opacity-50">
+      <p class="text-xl tracking-widest">NO ACTIVE QUESTS DETECTED</p>
+    </div>
+  </main>
+
+  <!-- FAB -->
+  <div class="fixed bottom-8 right-8 z-30">
+    <button onclick="toggleFabMenu()" class="w-14 h-14 bg-neon-cyan text-slate-900 rounded-full shadow-[0_0_20px_rgba(0,243,255,0.6)] flex items-center justify-center text-3xl font-bold transition transform hover:scale-110 active:scale-95">
+      +
+    </button>
+    <!-- Menu -->
+    <div id="fab-menu" class="absolute bottom-16 right-0 flex flex-col gap-3 transition-all duration-300 transform scale-0 origin-bottom-right">
+      <button onclick="openModal('project-modal')" class="glass-panel px-4 py-2 rounded-lg text-sm font-bold hover:bg-white/10 flex items-center gap-2 whitespace-nowrap">
+        <span class="w-2 h-2 rounded-full bg-neon-purple"></span> New Campaign
+      </button>
+      <button onclick="openModal('task-modal')" class="glass-panel px-4 py-2 rounded-lg text-sm font-bold hover:bg-white/10 flex items-center gap-2 whitespace-nowrap">
+        <span class="w-2 h-2 rounded-full bg-neon-cyan"></span> New Quest
+      </button>
+    </div>
+  </div>
+
+  <!-- Task Modal -->
+  <div id="task-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+    <div class="glass-panel w-full max-w-lg p-6 rounded-2xl border-t border-neon-cyan transform scale-95 transition-transform duration-300" id="task-modal-content">
+      <h2 class="text-2xl font-bold mb-6 text-neon-cyan tracking-widest">INITIALIZE NEW QUEST</h2>
+      <form onsubmit="handleAddTask(event)">
+        <div class="mb-4">
+          <label class="block text-xs uppercase text-gray-400 mb-1">Quest Title</label>
+          <input type="text" name="title" required class="w-full bg-slate-800 border border-slate-600 rounded p-3 focus:border-neon-cyan focus:outline-none transition text-white">
+        </div>
+        <div class="mb-4">
+          <label class="block text-xs uppercase text-gray-400 mb-1">Description</label>
+          <textarea name="description" class="w-full bg-slate-800 border border-slate-600 rounded p-3 focus:border-neon-cyan focus:outline-none transition text-white h-24"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-xs uppercase text-gray-400 mb-1">Campaign</label>
+            <select name="projectId" id="modal-project-select" class="w-full bg-slate-800 border border-slate-600 rounded p-3 focus:border-neon-cyan focus:outline-none text-white">
+              <!-- Options injected -->
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs uppercase text-gray-400 mb-1">Difficulty</label>
+            <select name="difficulty" class="w-full bg-slate-800 border border-slate-600 rounded p-3 focus:border-neon-cyan focus:outline-none text-white">
+              <option value="Easy">Easy (10 XP)</option>
+              <option value="Medium">Medium (25 XP)</option>
+              <option value="Hard">Hard (50 XP)</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-6">
+          <label class="block text-xs uppercase text-gray-400 mb-1">Deadline</label>
+          <input type="datetime-local" name="dueDate" required class="w-full bg-slate-800 border border-slate-600 rounded p-3 focus:border-neon-cyan focus:outline-none text-white appearance-none">
+        </div>
+        <div class="flex justify-end gap-3">
+          <button type="button" onclick="closeModal('task-modal')" class="px-4 py-2 rounded text-gray-400 hover:text-white">Abort</button>
+          <button type="submit" class="bg-neon-cyan text-slate-900 font-bold px-6 py-2 rounded hover:bg-cyan-300 transition shadow-[0_0_10px_rgba(0,243,255,0.4)]">Launch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Project Modal -->
+  <div id="project-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+    <div class="glass-panel w-full max-w-md p-6 rounded-2xl border-t border-neon-purple transform scale-95 transition-transform duration-300" id="project-modal-content">
+      <h2 class="text-2xl font-bold mb-6 text-neon-purple tracking-widest">NEW CAMPAIGN</h2>
+      <form onsubmit="handleAddProject(event)">
+        <div class="mb-4">
+          <label class="block text-xs uppercase text-gray-400 mb-1">Campaign Name</label>
+          <input type="text" name="name" required class="w-full bg-slate-800 border border-slate-600 rounded p-3 focus:border-neon-purple focus:outline-none transition text-white">
+        </div>
+        <div class="mb-6">
+          <label class="block text-xs uppercase text-gray-400 mb-1">Theme Color</label>
+          <input type="color" name="themeColor" value="#a855f7" class="w-full h-12 bg-slate-800 border border-slate-600 rounded cursor-pointer">
+        </div>
+        <div class="flex justify-end gap-3">
+          <button type="button" onclick="closeModal('project-modal')" class="px-4 py-2 rounded text-gray-400 hover:text-white">Abort</button>
+          <button type="submit" class="bg-neon-purple text-white font-bold px-6 py-2 rounded hover:bg-purple-600 transition shadow-[0_0_10px_rgba(188,19,254,0.4)]">Initialize</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    /* State */
+    let appData = {
+      projects: [],
+      tasks: [],
+      userStats: { level: 1, currentLevelXP: 0, nextLevelXP: 100, completedQuests: 0, totalXP: 0 }
+    };
+    let currentFilter = 'all';
+
+    /* Init */
+    window.onload = function() {
+      google.script.run.withSuccessHandler(initApp).withFailureHandler(handleInitError).getInitialData();
+    };
+
+    function initApp(data) {
+      if (data.error) {
+        document.getElementById('setup-warning').classList.remove('hidden');
+        document.getElementById('loading-screen').classList.add('hidden');
+        return;
+      }
+      appData = data;
+      renderAll();
+      document.getElementById('loading-screen').classList.add('opacity-0');
+      setTimeout(() => document.getElementById('loading-screen').classList.add('hidden'), 500);
+    }
+
+    function handleInitError(err) {
+      alert("System Failure: " + err.message);
+    }
+
+    /* Rendering */
+    function renderAll() {
+      renderStats();
+      renderProjects();
+      renderTasks();
+      updateModalProjects();
+    }
+
+    function renderStats() {
+      const stats = appData.userStats;
+      document.getElementById('user-level').innerText = stats.level;
+      document.getElementById('current-xp').innerText = stats.currentLevelXP;
+      document.getElementById('next-level-xp').innerText = stats.nextLevelXP;
+      document.getElementById('completed-count').innerText = stats.completedQuests;
+
+      const percentage = (stats.currentLevelXP / stats.nextLevelXP) * 100;
+      document.getElementById('xp-bar').style.width = `${percentage}%`;
+    }
+
+    function renderProjects() {
+      const container = document.getElementById('project-filter-container');
+      // Keep "All" button
+      container.innerHTML = `
+        <button onclick="filterTasks('all')" class="project-pill ${currentFilter === 'all' ? 'bg-neon-cyan text-slate-900 shadow-lg shadow-cyan-500/50' : 'bg-slate-700 text-white hover:bg-slate-600'} px-4 py-2 rounded-full text-sm font-bold transition border border-transparent whitespace-nowrap">
+          ALL SYSTEMS
         </button>
-      </div>
-    </header>
+      `;
 
-    <!-- Motivational Quote -->
-    <div class="max-w-4xl mx-auto mb-8 text-center italic text-gray-400" id="quote-container">
-      "The future depends on what you do today." - Mahatma Gandhi
-    </div>
+      appData.projects.forEach(p => {
+        const isActive = currentFilter === p.id;
+        const btn = document.createElement('button');
+        btn.onclick = () => filterTasks(p.id);
+        btn.className = `project-pill px-4 py-2 rounded-full text-sm font-bold transition border border-transparent whitespace-nowrap flex items-center gap-2`;
 
-    <!-- Task List -->
-    <main class="max-w-4xl mx-auto" id="task-container">
-      <div class="text-center text-gray-500 mt-10">Loading your mission log...</div>
-    </main>
+        if (isActive) {
+           btn.style.backgroundColor = p.themeColor;
+           btn.style.color = 'white';
+           btn.style.boxShadow = `0 0 10px ${p.themeColor}`;
+        } else {
+           btn.className += ' bg-slate-700 text-white hover:bg-slate-600';
+           btn.innerHTML = `<span class="w-2 h-2 rounded-full" style="background-color: ${p.themeColor}"></span> ${escapeHtml(p.name)}`;
+        }
 
-    <!-- Add Task Modal -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
-      <div class="bg-gray-800 p-6 rounded-xl w-full max-w-md shadow-2xl border border-gray-700">
-        <h2 class="text-2xl font-bold mb-4">New Mission</h2>
-        <form id="add-task-form" onsubmit="submitTask(event)">
-          <div class="mb-4">
-            <label class="block text-gray-400 mb-2">Title</label>
-            <input type="text" id="task-title" required class="w-full bg-gray-700 rounded p-2 text-white focus:outline-none focus:ring-2 focus:ring-game-primary">
-          </div>
-          <div class="mb-4">
-            <label class="block text-gray-400 mb-2">Description</label>
-            <textarea id="task-desc" class="w-full bg-gray-700 rounded p-2 text-white focus:outline-none focus:ring-2 focus:ring-game-primary"></textarea>
-          </div>
-          <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label class="block text-gray-400 mb-2">Deadline</label>
-              <input type="datetime-local" id="task-deadline" required class="w-full bg-gray-700 rounded p-2 text-white focus:outline-none focus:ring-2 focus:ring-game-primary">
-            </div>
-            <div>
-              <label class="block text-gray-400 mb-2">Difficulty</label>
-              <select id="task-difficulty" class="w-full bg-gray-700 rounded p-2 text-white focus:outline-none focus:ring-2 focus:ring-game-primary">
-                <option value="Easy">Easy (10pts)</option>
-                <option value="Medium">Medium (25pts)</option>
-                <option value="Hard">Hard (50pts)</option>
-              </select>
-            </div>
-          </div>
-          <div class="flex justify-end gap-2">
-            <button type="button" onclick="closeModal()" class="px-4 py-2 rounded text-gray-400 hover:text-white">Cancel</button>
-            <button type="submit" class="bg-game-primary hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded transition">Add Task</button>
-          </div>
-        </form>
-      </div>
-    </div>
+        if (isActive) btn.innerText = p.name; // simple text if active
 
-    <script>
-      // Quotes Array
-      const quotes = [
-        "The future depends on what you do today.",
-        "Don't watch the clock; do what it does. Keep going.",
-        "Success is the sum of small efforts, repeated day in and day out.",
-        "Your future is created by what you do today, not tomorrow.",
-        "Dream big. Start small. Act now."
-      ];
+        container.appendChild(btn);
+      });
+    }
 
-      document.getElementById('quote-container').innerText = '"' + quotes[Math.floor(Math.random() * quotes.length)] + '"';
+    function renderTasks() {
+      const container = document.getElementById('quest-grid');
+      container.innerHTML = '';
 
-      function loadData() {
-        google.script.run.withSuccessHandler(render).withFailureHandler(handleError).getData();
+      const filtered = appData.tasks.filter(t => {
+        const matchesProject = currentFilter === 'all' || t.projectId === currentFilter;
+        const isPending = t.status !== 'Done';
+        return matchesProject && isPending;
+      });
+
+      if (filtered.length === 0) {
+        document.getElementById('empty-state').classList.remove('hidden');
+        return;
       }
+      document.getElementById('empty-state').classList.add('hidden');
 
-      function render(data) {
-        if (data.error) {
-          document.getElementById('task-container').innerHTML = `<div class="text-red-500 text-center">${data.error}</div>`;
-          return;
-        }
+      filtered.forEach(task => {
+        const project = appData.projects.find(p => p.id === task.projectId) || { name: 'Unknown', themeColor: '#ccc' };
 
-        // Update Stats
-        document.getElementById('stat-points').innerText = data.stats.totalPoints;
-        document.getElementById('stat-level').innerText = data.stats.level;
-        document.getElementById('stat-streak').innerText = data.stats.currentStreak;
-
-        // Render Tasks
-        const container = document.getElementById('task-container');
-        container.innerHTML = '';
-
-        if (data.tasks.length === 0) {
-          container.innerHTML = '<div class="text-center text-gray-500">No active missions. Good job!</div>';
-          return;
-        }
-
-        // Filter out completed tasks or show them differently? Requirements imply tracking completions.
-        // Let's sort: Pending first, sorted by deadline. Then Done.
-        const pendingTasks = data.tasks.filter(t => t.status !== 'Done').sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
-        const doneTasks = data.tasks.filter(t => t.status === 'Done');
-
-        if (pendingTasks.length === 0 && doneTasks.length > 0) {
-             container.innerHTML += '<div class="text-center text-gray-500 mb-4">All active missions complete!</div>';
-        }
-
-        pendingTasks.forEach(task => container.appendChild(createTaskCard(task)));
-
-        // Optional: Show completed tasks at bottom, grayed out
-        if (doneTasks.length > 0) {
-             const separator = document.createElement('div');
-             separator.className = 'text-center text-gray-600 my-8 uppercase text-sm tracking-wider';
-             separator.innerText = 'Completed Log';
-             container.appendChild(separator);
-             doneTasks.forEach(task => container.appendChild(createTaskCard(task)));
-        }
-      }
-
-      function escapeHtml(text) {
-        if (!text) return '';
-        return text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-      }
-
-      function createTaskCard(task) {
-        const isDone = task.status === 'Done';
-        const deadline = new Date(task.deadline);
-        const now = new Date();
-        const isOverdue = !isDone && now > deadline;
+        // Difficulty Styling
+        let borderColorClass = 'neon-border-cyan';
+        if (task.difficulty === 'Medium') borderColorClass = 'neon-border-purple';
+        if (task.difficulty === 'Hard') borderColorClass = 'neon-border-gold';
 
         const card = document.createElement('div');
-        card.className = `glass p-4 rounded-xl mb-4 flex justify-between items-center transition hover:bg-gray-800 ${isDone ? 'opacity-50 grayscale' : ''} ${isOverdue ? 'border-red-500 border-l-4' : 'border-l-4 border-game-primary'}`;
+        card.className = `glass-panel p-5 rounded-xl border-l-4 transition hover:-translate-y-1 hover:bg-slate-800 ${borderColorClass} relative overflow-hidden group`;
 
-        const safeTitle = escapeHtml(task.title);
-        const safeDescription = escapeHtml(task.description);
+        // Deadline logic
+        const dueDate = new Date(task.dueDate);
+        const now = new Date();
+        const diffHours = (dueDate - now) / (1000 * 60 * 60);
+        let timeClass = "text-gray-400";
+        if (diffHours < 0) timeClass = "text-red-500 font-bold animate-pulse";
+        else if (diffHours < 24) timeClass = "text-orange-400";
 
         card.innerHTML = `
-          <div>
-            <div class="flex items-center gap-2">
-               <h3 class="text-xl font-bold ${isDone ? 'line-through' : ''}">${safeTitle}</h3>
-               <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">${task.difficulty}</span>
-               ${isOverdue ? '<span class="text-xs px-2 py-0.5 rounded bg-red-900 text-red-200">Overdue</span>' : ''}
-            </div>
-            <p class="text-gray-400 text-sm mt-1">${safeDescription}</p>
-            <div class="text-xs text-gray-500 mt-2 flex gap-4">
-              <span>📅 ${deadline.toLocaleString()}</span>
-              <span>⭐ ${task.points} Pts</span>
-            </div>
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-xs font-bold px-2 py-0.5 rounded bg-slate-900 text-white border border-slate-700" style="color: ${project.themeColor}">${escapeHtml(project.name)}</span>
+            <span class="text-xs font-mono text-neon-cyan">${task.difficulty.toUpperCase()}</span>
           </div>
-          <div class="flex flex-col gap-2">
-            ${!isDone ? `
-              <button onclick="completeTask('${task.id}')" class="bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 px-3 rounded">
-                Complete
-              </button>
-            ` : ''}
-            <button onclick="deleteTask('${task.id}')" class="bg-red-900 hover:bg-red-700 text-white text-xs font-bold py-2 px-3 rounded">
-              Delete
+          <h3 class="text-lg font-bold text-white mb-1 group-hover:text-neon-cyan transition">${escapeHtml(task.title)}</h3>
+          <p class="text-sm text-gray-400 mb-4 line-clamp-2">${escapeHtml(task.description)}</p>
+
+          <div class="flex items-center justify-between mt-auto">
+            <div class="flex flex-col text-xs">
+              <span class="${timeClass}">⏳ ${diffHours < 0 ? 'OVERDUE' : dueDate.toLocaleDateString()}</span>
+              <span class="text-neon-gold">Reward: ${task.xpReward} XP</span>
+            </div>
+            <button onclick="completeTask('${task.id}', ${task.xpReward})" class="bg-slate-700 hover:bg-neon-cyan hover:text-slate-900 text-white rounded-full p-2 transition shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
             </button>
           </div>
         `;
-        return card;
+        container.appendChild(card);
+      });
+    }
+
+    function updateModalProjects() {
+      const select = document.getElementById('modal-project-select');
+      select.innerHTML = '';
+      appData.projects.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.innerText = p.name;
+        select.appendChild(opt);
+      });
+    }
+
+    /* Logic */
+    function filterTasks(pid) {
+      currentFilter = pid;
+      renderProjects(); // to update active state
+      renderTasks();
+    }
+
+    function toggleFabMenu() {
+      const menu = document.getElementById('fab-menu');
+      if (menu.classList.contains('scale-0')) {
+        menu.classList.remove('scale-0');
+      } else {
+        menu.classList.add('scale-0');
+      }
+    }
+
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      const content = document.getElementById(id + '-content');
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+        content.classList.add('scale-100');
+      }, 10);
+      toggleFabMenu(); // close fab if open
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      const content = document.getElementById(id + '-content');
+      modal.classList.add('opacity-0');
+      content.classList.remove('scale-100');
+      content.classList.add('scale-95');
+      setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+
+    function handleAddProject(e) {
+      e.preventDefault();
+      const form = e.target;
+      const name = form.name.value;
+      const themeColor = form.themeColor.value;
+
+      // Optimistic Update
+      const tempId = 'temp-' + Date.now();
+      const newProject = { id: tempId, name, themeColor, createdAt: new Date().toISOString() };
+      appData.projects.push(newProject);
+      renderAll();
+      closeModal('project-modal');
+      form.reset();
+
+      google.script.run.withSuccessHandler((serverProj) => {
+        // Replace temp with real
+        const idx = appData.projects.findIndex(p => p.id === tempId);
+        if (idx !== -1) appData.projects[idx] = serverProj;
+        renderAll(); // Re-render to update ID in DOM if needed
+      }).addProject(name, themeColor);
+    }
+
+    function handleAddTask(e) {
+      e.preventDefault();
+      const form = e.target;
+      const taskData = {
+        title: form.title.value,
+        description: form.description.value,
+        projectId: form.projectId.value,
+        difficulty: form.difficulty.value,
+        dueDate: form.dueDate.value
+      };
+
+      // Assume XP for optimistic
+      let xp = 10;
+      if (taskData.difficulty === 'Medium') xp = 25;
+      if (taskData.difficulty === 'Hard') xp = 50;
+
+      // Optimistic
+      const tempId = 'temp-' + Date.now();
+      const newTask = { ...taskData, id: tempId, status: 'Pending', xpReward: xp, createdAt: new Date().toISOString(), completedAt: null };
+
+      appData.tasks.push(newTask);
+      renderTasks(); // Only need to re-render tasks
+      closeModal('task-modal');
+      form.reset();
+
+      google.script.run.withSuccessHandler((serverTask) => {
+        const idx = appData.tasks.findIndex(t => t.id === tempId);
+        if (idx !== -1) appData.tasks[idx] = serverTask;
+        // No need to re-render strictly unless ID matters for deletion/completion immediately
+      }).addTask(taskData);
+    }
+
+    function completeTask(id, xp) {
+      // Confetti!
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#00f3ff', '#bc13fe', '#ffd700']
+      });
+
+      // Optimistic
+      const taskIdx = appData.tasks.findIndex(t => t.id === id);
+      if (taskIdx !== -1) {
+        appData.tasks[taskIdx].status = 'Done';
       }
 
-      function submitTask(e) {
-        e.preventDefault();
-        const task = {
-          title: document.getElementById('task-title').value,
-          description: document.getElementById('task-desc').value,
-          deadline: document.getElementById('task-deadline').value,
-          difficulty: document.getElementById('task-difficulty').value
-        };
+      // Update Stats Optimistically
+      appData.userStats.totalXP += xp;
+      appData.userStats.completedQuests++;
+      appData.userStats.currentLevelXP += xp;
 
-        closeModal();
-        document.getElementById('task-container').innerHTML = '<div class="text-center text-gray-500 mt-10">Adding mission...</div>';
-        google.script.run.withSuccessHandler(render).addTask(task);
-        document.getElementById('add-task-form').reset();
+      // Check Level Up
+      if (appData.userStats.currentLevelXP >= appData.userStats.nextLevelXP) {
+         appData.userStats.level++;
+         appData.userStats.currentLevelXP -= appData.userStats.nextLevelXP;
+         // Extra confetti for level up
+         setTimeout(() => {
+           confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+         }, 500);
       }
 
-      function completeTask(id) {
-        // Optimistic UI update could happen here, but simplest to wait for server
-        document.getElementById('task-container').innerHTML = '<div class="text-center text-gray-500 mt-10">Verifying completion...</div>';
-        google.script.run.withSuccessHandler(render).markTaskComplete(id);
-      }
+      renderAll();
 
-      function deleteTask(id) {
-        if(!confirm('Are you sure you want to abort this mission?')) return;
-        document.getElementById('task-container').innerHTML = '<div class="text-center text-gray-500 mt-10">Deleting...</div>';
-        google.script.run.withSuccessHandler(render).deleteTask(id);
-      }
+      google.script.run.completeTask(id);
+    }
 
-      function openModal() {
-        document.getElementById('modal').classList.remove('hidden');
-      }
-
-      function closeModal() {
-        document.getElementById('modal').classList.add('hidden');
-      }
-
-      function handleError(err) {
-        console.error(err);
-        alert('Error: ' + err.message);
-      }
-
-      // Initial Load
-      loadData();
-    </script>
-  </body>
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
 </html>

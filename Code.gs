@@ -1,288 +1,238 @@
 /**
- * Serve the HTML file for the web app.
+ * Quest 2026 - Backend Logic
  */
+
 function doGet(e) {
   return HtmlService.createHtmlOutputFromFile('index')
-      .setTitle('To-Do List 2026')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-/**
- * Creates a custom menu in Google Sheets.
- */
-function onOpen() {
-  SpreadsheetApp.getUi()
-      .createMenu('To-Do List 2026')
-      .addItem('Setup Database', 'setup')
-      .addToUi();
+    .setTitle('Quest 2026')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 /**
  * Setup function to initialize sheets and headers.
- * User should run this once manually.
  */
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Setup Tasks Sheet
-  let tasksSheet = ss.getSheetByName('Tasks');
-  if (!tasksSheet) {
-    tasksSheet = ss.insertSheet('Tasks');
-    // Added 'Last Reminder Sent' at index 9 (Column J)
-    tasksSheet.appendRow(['ID', 'Title', 'Description', 'Deadline', 'Status', 'Difficulty', 'Points', 'Created At', 'Completed At', 'Last Reminder Sent']);
-  } else {
-    // Check if the new column exists, if not add it (migration support)
-    const headers = tasksSheet.getRange(1, 1, 1, tasksSheet.getLastColumn()).getValues()[0];
-    if (headers.length < 10) {
-      tasksSheet.getRange(1, 10).setValue('Last Reminder Sent');
-    }
+  // Setup DB_Projects
+  let projectsSheet = ss.getSheetByName('DB_Projects');
+  if (!projectsSheet) {
+    projectsSheet = ss.insertSheet('DB_Projects');
+    // Columns: id (A), name (B), themeColor (C), createdAt (D)
+    projectsSheet.appendRow(['id', 'name', 'themeColor', 'createdAt']);
+
+    // Add a default project
+    projectsSheet.appendRow([Utilities.getUuid(), 'Main Quest', '#a855f7', new Date()]);
   }
 
-  // Setup UserStats Sheet
-  let statsSheet = ss.getSheetByName('UserStats');
-  if (!statsSheet) {
-    statsSheet = ss.insertSheet('UserStats');
-    statsSheet.appendRow(['Total Points', 'Level', 'Current Streak', 'Max Streak', 'Last Active Date']);
-    // Initialize stats row
-    statsSheet.appendRow([0, 1, 0, 0, new Date()]);
+  // Setup DB_Tasks
+  let tasksSheet = ss.getSheetByName('DB_Tasks');
+  if (!tasksSheet) {
+    tasksSheet = ss.insertSheet('DB_Tasks');
+    // Columns: id (A), projectId (B), title (C), description (D), difficulty (E), dueDate (F), status (G), xpReward (H), createdAt (I), completedAt (J)
+    tasksSheet.appendRow(['id', 'projectId', 'title', 'description', 'difficulty', 'dueDate', 'status', 'xpReward', 'createdAt', 'completedAt']);
   }
 }
 
 /**
- * Get all tasks and user stats.
+ * Fetch all data for the client.
  */
-function getData() {
+function getInitialData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tasksSheet = ss.getSheetByName('Tasks');
-  const statsSheet = ss.getSheetByName('UserStats');
+  const projectsSheet = ss.getSheetByName('DB_Projects');
+  const tasksSheet = ss.getSheetByName('DB_Tasks');
 
-  if (!tasksSheet || !statsSheet) {
-    return { error: "Please run the setup() function first." };
+  if (!projectsSheet || !tasksSheet) {
+    return { error: 'Database not initialized. Please run setup() function.' };
   }
 
-  const tasksData = tasksSheet.getDataRange().getValues();
-  const statsData = statsSheet.getDataRange().getValues();
-
-  // Remove headers
-  const tasks = tasksData.slice(1).map(row => ({
+  // Get Projects
+  const projectData = projectsSheet.getDataRange().getValues();
+  const projects = projectData.slice(1).map(row => ({
     id: row[0],
-    title: row[1],
-    description: row[2],
-    deadline: row[3],
-    status: row[4],
-    difficulty: row[5],
-    points: row[6],
-    createdAt: row[7],
-    completedAt: row[8]
+    name: row[1],
+    themeColor: row[2],
+    createdAt: row[3]
   }));
 
-  const stats = {
-    totalPoints: statsData[1] ? statsData[1][0] : 0,
-    level: statsData[1] ? statsData[1][1] : 1,
-    currentStreak: statsData[1] ? statsData[1][2] : 0,
-    maxStreak: statsData[1] ? statsData[1][3] : 0,
-    lastActiveDate: statsData[1] ? statsData[1][4] : new Date()
-  };
+  // Get Tasks
+  const taskData = tasksSheet.getDataRange().getValues();
+  const tasks = taskData.slice(1).map(row => ({
+    id: row[0],
+    projectId: row[1],
+    title: row[2],
+    description: row[3],
+    difficulty: row[4],
+    dueDate: row[5] ? new Date(row[5]).toISOString() : null,
+    status: row[6],
+    xpReward: Number(row[7]),
+    createdAt: row[8],
+    completedAt: row[9] ? new Date(row[9]).toISOString() : null
+  }));
 
-  return { tasks, stats };
+  // Calculate User Stats
+  let totalXP = 0;
+  let completedQuests = 0;
+
+  tasks.forEach(task => {
+    if (task.status === 'Done') {
+      totalXP += task.xpReward || 0;
+      completedQuests++;
+    }
+  });
+
+  // Level Calculation: Level 1 base, +1 level every 100 XP (Linear for simplicity as requested, or standard RPG curve)
+  // Let's go with a simple curve: Level = floor(sqrt(XP / 10)) + 1 roughly, or just linear 100xp per level.
+  // Prompt asked to "Calculate user level". Let's use Linear: 100 XP per level.
+  const level = Math.floor(totalXP / 100) + 1;
+  const currentLevelXP = totalXP % 100;
+  const nextLevelXP = 100; // Fixed 100 xp per level
+
+  return {
+    projects,
+    tasks,
+    userStats: {
+      totalXP,
+      level,
+      currentLevelXP,
+      nextLevelXP,
+      completedQuests
+    }
+  };
 }
 
 /**
- * Add a new task.
+ * Add a new Project (Campaign).
  */
-function addTask(task) {
+function addProject(name, themeColor) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Tasks');
-
+  const sheet = ss.getSheetByName('DB_Projects');
   const id = Utilities.getUuid();
   const createdAt = new Date();
-  const points = calculateBasePoints(task.difficulty);
+
+  sheet.appendRow([id, name, themeColor, createdAt]);
+
+  return { id, name, themeColor, createdAt };
+}
+
+/**
+ * Add a new Task (Quest).
+ */
+function addTask(taskData) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('DB_Tasks');
+  const id = Utilities.getUuid();
+  const createdAt = new Date();
+
+  // Calculate XP
+  let xp = 10;
+  switch(taskData.difficulty) {
+    case 'Medium': xp = 25; break;
+    case 'Hard': xp = 50; break;
+    default: xp = 10;
+  }
 
   sheet.appendRow([
     id,
-    task.title,
-    task.description,
-    new Date(task.deadline),
+    taskData.projectId,
+    taskData.title,
+    taskData.description,
+    taskData.difficulty,
+    taskData.dueDate ? new Date(taskData.dueDate) : '',
     'Pending',
-    task.difficulty,
-    points,
+    xp,
     createdAt,
-    '',
-    '' // Last Reminder Sent
+    ''
   ]);
 
-  return getData();
+  return {
+    id,
+    projectId: taskData.projectId,
+    title: taskData.title,
+    description: taskData.description,
+    difficulty: taskData.difficulty,
+    dueDate: taskData.dueDate,
+    status: 'Pending',
+    xpReward: xp,
+    createdAt: createdAt.toISOString(),
+    completedAt: null
+  };
 }
 
 /**
- * Delete a task.
+ * Mark a task as complete.
  */
-function deleteTask(id) {
+function completeTask(taskId) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Tasks');
+  const sheet = ss.getSheetByName('DB_Tasks');
   const data = sheet.getDataRange().getValues();
 
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] == id) {
-      sheet.deleteRow(i + 1);
-      break;
+    if (data[i][0] == taskId) {
+      const xp = data[i][7];
+      sheet.getRange(i + 1, 7).setValue('Done'); // Status
+      sheet.getRange(i + 1, 10).setValue(new Date()); // CompletedAt
+      return Number(xp);
     }
   }
-
-  return getData();
+  return 0;
 }
 
 /**
- * Mark a task as complete and update stats.
- */
-function markTaskComplete(id) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const tasksSheet = ss.getSheetByName('Tasks');
-  const statsSheet = ss.getSheetByName('UserStats');
-
-  const tasksData = tasksSheet.getDataRange().getValues();
-  let taskRowIndex = -1;
-  let taskData = null;
-
-  for (let i = 1; i < tasksData.length; i++) {
-    if (tasksData[i][0] == id) {
-      taskRowIndex = i + 1;
-      taskData = tasksData[i];
-      break;
-    }
-  }
-
-  if (taskRowIndex === -1) return getData(); // Task not found
-
-  // Update Task Status
-  const completedAt = new Date();
-  tasksSheet.getRange(taskRowIndex, 5).setValue('Done'); // Status
-  tasksSheet.getRange(taskRowIndex, 9).setValue(completedAt); // Completed At
-
-  // Calculate Points
-  const deadline = new Date(taskData[3]);
-  let pointsEarned = Number(taskData[6]);
-
-  // Bonus/Penalty Logic
-  if (completedAt > deadline) {
-    pointsEarned = Math.floor(pointsEarned * 0.5); // 50% penalty for late
-  } else {
-    // 10% bonus for being early (more than 24h early)
-    const diffHours = (deadline - completedAt) / (1000 * 60 * 60);
-    if (diffHours > 24) {
-      pointsEarned = Math.floor(pointsEarned * 1.1);
-    }
-  }
-
-  // Update Stats
-  const statsRange = statsSheet.getRange(2, 1, 1, 5);
-  const currentStats = statsRange.getValues()[0];
-
-  let totalPoints = currentStats[0] + pointsEarned;
-  let currentStreak = currentStats[2];
-  let maxStreak = currentStats[3];
-  let lastActive = new Date(currentStats[4]);
-
-  // Streak Logic
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const lastActiveDay = new Date(lastActive);
-  lastActiveDay.setHours(0,0,0,0);
-
-  const diffDays = (today - lastActiveDay) / (1000 * 60 * 60 * 24);
-
-  if (diffDays === 0) {
-    // Same day, streak continues, no increment
-  } else if (diffDays === 1) {
-    currentStreak++;
-  } else {
-    currentStreak = 1; // Reset streak
-  }
-
-  if (currentStreak > maxStreak) maxStreak = currentStreak;
-
-  // Level Calculation (Simple: 1 level per 100 points)
-  const level = Math.floor(totalPoints / 100) + 1;
-
-  statsRange.setValues([[totalPoints, level, currentStreak, maxStreak, new Date()]]);
-
-  return getData();
-}
-
-/**
- * Helper to determine points based on difficulty.
- */
-function calculateBasePoints(difficulty) {
-  switch (difficulty) {
-    case 'Easy': return 10;
-    case 'Medium': return 25;
-    case 'Hard': return 50;
-    default: return 10;
-  }
-}
-
-/**
- * Trigger function to check deadlines and send emails.
- * Should be set up as a time-driven trigger (e.g., every hour).
+ * Check deadlines and send emails.
+ * Run this via Time-Driven Trigger.
  */
 function checkDeadlines() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Tasks');
-  // Get data including the new 'Last Reminder Sent' column (index 9)
-  const dataRange = sheet.getDataRange();
-  const data = dataRange.getValues();
+  const sheet = ss.getSheetByName('DB_Tasks');
+  const data = sheet.getDataRange().getValues();
   const now = new Date();
   const userEmail = Session.getActiveUser().getEmail();
 
-  let emailBody = "Here is your To-Do List Update:\n\n";
-  let sendEmail = false;
-  const updates = []; // Store updates to write back in batch
+  let overdueTasks = [];
+  let dueSoonTasks = [];
 
+  // Iterate tasks
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const title = row[1];
-    const deadline = new Date(row[3]);
-    const status = row[4];
-    const lastReminder = row[9] ? new Date(row[9]) : null;
+    const status = row[6];
+    const dueDateStr = row[5];
+    const title = row[2];
 
-    let shouldNotify = false;
-    let note = "";
+    if (status !== 'Done' && dueDateStr) {
+      const dueDate = new Date(dueDateStr);
+      const diffHours = (dueDate - now) / (1000 * 60 * 60);
 
-    if (status !== 'Done') {
-      const diffHours = (deadline - now) / (1000 * 60 * 60);
-
-      // Urgent: Due in < 24 hours
-      if (diffHours > 0 && diffHours < 24) {
-        // Notify if never notified OR notified more than 20 hours ago (essentially once a day for urgent tasks)
-        if (!lastReminder || (now - lastReminder) > (20 * 60 * 60 * 1000)) {
-           note = `[URGENT] '${title}' is due in ${Math.floor(diffHours)} hours.`;
-           shouldNotify = true;
-        }
-      }
-      // Overdue
-      else if (diffHours < 0) {
-        // Notify if never notified OR notified more than 24 hours ago (once a day reminder for overdue)
-        if (!lastReminder || (now - lastReminder) > (24 * 60 * 60 * 1000)) {
-           note = `[OVERDUE] '${title}' was due on ${deadline.toLocaleString()}.`;
-           shouldNotify = true;
-        }
-      }
-
-      if (shouldNotify) {
-        emailBody += `${note}\n`;
-        sendEmail = true;
-        // Update the 'Last Reminder Sent' for this row
-        // We'll update the specific cell to avoid overwriting other changes if concurrent (unlikely here but good practice)
-        sheet.getRange(i + 1, 10).setValue(now);
+      if (diffHours < 0) {
+        overdueTasks.push(title);
+      } else if (diffHours < 24) {
+        dueSoonTasks.push(title);
       }
     }
   }
 
-  if (sendEmail) {
+  if (overdueTasks.length > 0 || dueSoonTasks.length > 0) {
+    let subject = "⚔️ Quest Status Update";
+    let body = "<h1>Quest Log Update</h1>";
+
+    if (overdueTasks.length > 0) {
+      subject = "💀 The Boss is Angry! (Overdue Quests)";
+      body += "<h2 style='color:red;'>FAILED QUESTS (Overdue)</h2><ul>";
+      overdueTasks.forEach(t => body += `<li>${t}</li>`);
+      body += "</ul><p>The dark forces are gaining ground...</p>";
+    }
+
+    if (dueSoonTasks.length > 0) {
+      body += "<h2 style='color:orange;'>Quest Timers Expiring Soon</h2><ul>";
+      dueSoonTasks.forEach(t => body += `<li>${t}</li>`);
+      body += "</ul>";
+    }
+
     MailApp.sendEmail({
       to: userEmail,
-      subject: "Action Required: To-Do List 2026",
-      body: emailBody
+      subject: subject,
+      htmlBody: body
     });
   }
 }
