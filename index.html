@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'game-primary': '#4f46e5',
+              'game-secondary': '#818cf8',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      .glass {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+    </style>
+  </head>
+  <body class="bg-gray-900 text-white font-sans min-h-screen p-4 sm:p-8">
+
+    <!-- Header / Stats -->
+    <header class="max-w-4xl mx-auto mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="glass p-4 rounded-xl text-center">
+        <div class="text-sm text-gray-400">Total Points</div>
+        <div class="text-3xl font-bold text-yellow-400" id="stat-points">0</div>
+      </div>
+      <div class="glass p-4 rounded-xl text-center">
+        <div class="text-sm text-gray-400">Level</div>
+        <div class="text-3xl font-bold text-game-secondary" id="stat-level">1</div>
+      </div>
+      <div class="glass p-4 rounded-xl text-center">
+        <div class="text-sm text-gray-400">Streak</div>
+        <div class="text-3xl font-bold text-orange-500"><span id="stat-streak">0</span> Days</div>
+      </div>
+      <div class="glass p-4 rounded-xl text-center flex items-center justify-center">
+        <button onclick="openModal()" class="bg-game-primary hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-lg transition transform hover:scale-105">
+          + New Task
+        </button>
+      </div>
+    </header>
+
+    <!-- Motivational Quote -->
+    <div class="max-w-4xl mx-auto mb-8 text-center italic text-gray-400" id="quote-container">
+      "The future depends on what you do today." - Mahatma Gandhi
+    </div>
+
+    <!-- Task List -->
+    <main class="max-w-4xl mx-auto" id="task-container">
+      <div class="text-center text-gray-500 mt-10">Loading your mission log...</div>
+    </main>
+
+    <!-- Add Task Modal -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+      <div class="bg-gray-800 p-6 rounded-xl w-full max-w-md shadow-2xl border border-gray-700">
+        <h2 class="text-2xl font-bold mb-4">New Mission</h2>
+        <form id="add-task-form" onsubmit="submitTask(event)">
+          <div class="mb-4">
+            <label class="block text-gray-400 mb-2">Title</label>
+            <input type="text" id="task-title" required class="w-full bg-gray-700 rounded p-2 text-white focus:outline-none focus:ring-2 focus:ring-game-primary">
+          </div>
+          <div class="mb-4">
+            <label class="block text-gray-400 mb-2">Description</label>
+            <textarea id="task-desc" class="w-full bg-gray-700 rounded p-2 text-white focus:outline-none focus:ring-2 focus:ring-game-primary"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-gray-400 mb-2">Deadline</label>
+              <input type="datetime-local" id="task-deadline" required class="w-full bg-gray-700 rounded p-2 text-white focus:outline-none focus:ring-2 focus:ring-game-primary">
+            </div>
+            <div>
+              <label class="block text-gray-400 mb-2">Difficulty</label>
+              <select id="task-difficulty" class="w-full bg-gray-700 rounded p-2 text-white focus:outline-none focus:ring-2 focus:ring-game-primary">
+                <option value="Easy">Easy (10pts)</option>
+                <option value="Medium">Medium (25pts)</option>
+                <option value="Hard">Hard (50pts)</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" onclick="closeModal()" class="px-4 py-2 rounded text-gray-400 hover:text-white">Cancel</button>
+            <button type="submit" class="bg-game-primary hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded transition">Add Task</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      // Quotes Array
+      const quotes = [
+        "The future depends on what you do today.",
+        "Don't watch the clock; do what it does. Keep going.",
+        "Success is the sum of small efforts, repeated day in and day out.",
+        "Your future is created by what you do today, not tomorrow.",
+        "Dream big. Start small. Act now."
+      ];
+
+      document.getElementById('quote-container').innerText = '"' + quotes[Math.floor(Math.random() * quotes.length)] + '"';
+
+      function loadData() {
+        google.script.run.withSuccessHandler(render).withFailureHandler(handleError).getData();
+      }
+
+      function render(data) {
+        if (data.error) {
+          document.getElementById('task-container').innerHTML = `<div class="text-red-500 text-center">${data.error}</div>`;
+          return;
+        }
+
+        // Update Stats
+        document.getElementById('stat-points').innerText = data.stats.totalPoints;
+        document.getElementById('stat-level').innerText = data.stats.level;
+        document.getElementById('stat-streak').innerText = data.stats.currentStreak;
+
+        // Render Tasks
+        const container = document.getElementById('task-container');
+        container.innerHTML = '';
+
+        if (data.tasks.length === 0) {
+          container.innerHTML = '<div class="text-center text-gray-500">No active missions. Good job!</div>';
+          return;
+        }
+
+        // Filter out completed tasks or show them differently? Requirements imply tracking completions.
+        // Let's sort: Pending first, sorted by deadline. Then Done.
+        const pendingTasks = data.tasks.filter(t => t.status !== 'Done').sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+        const doneTasks = data.tasks.filter(t => t.status === 'Done');
+
+        if (pendingTasks.length === 0 && doneTasks.length > 0) {
+             container.innerHTML += '<div class="text-center text-gray-500 mb-4">All active missions complete!</div>';
+        }
+
+        pendingTasks.forEach(task => container.appendChild(createTaskCard(task)));
+
+        // Optional: Show completed tasks at bottom, grayed out
+        if (doneTasks.length > 0) {
+             const separator = document.createElement('div');
+             separator.className = 'text-center text-gray-600 my-8 uppercase text-sm tracking-wider';
+             separator.innerText = 'Completed Log';
+             container.appendChild(separator);
+             doneTasks.forEach(task => container.appendChild(createTaskCard(task)));
+        }
+      }
+
+      function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+      }
+
+      function createTaskCard(task) {
+        const isDone = task.status === 'Done';
+        const deadline = new Date(task.deadline);
+        const now = new Date();
+        const isOverdue = !isDone && now > deadline;
+
+        const card = document.createElement('div');
+        card.className = `glass p-4 rounded-xl mb-4 flex justify-between items-center transition hover:bg-gray-800 ${isDone ? 'opacity-50 grayscale' : ''} ${isOverdue ? 'border-red-500 border-l-4' : 'border-l-4 border-game-primary'}`;
+
+        const safeTitle = escapeHtml(task.title);
+        const safeDescription = escapeHtml(task.description);
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+               <h3 class="text-xl font-bold ${isDone ? 'line-through' : ''}">${safeTitle}</h3>
+               <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">${task.difficulty}</span>
+               ${isOverdue ? '<span class="text-xs px-2 py-0.5 rounded bg-red-900 text-red-200">Overdue</span>' : ''}
+            </div>
+            <p class="text-gray-400 text-sm mt-1">${safeDescription}</p>
+            <div class="text-xs text-gray-500 mt-2 flex gap-4">
+              <span>📅 ${deadline.toLocaleString()}</span>
+              <span>⭐ ${task.points} Pts</span>
+            </div>
+          </div>
+          <div class="flex flex-col gap-2">
+            ${!isDone ? `
+              <button onclick="completeTask('${task.id}')" class="bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 px-3 rounded">
+                Complete
+              </button>
+            ` : ''}
+            <button onclick="deleteTask('${task.id}')" class="bg-red-900 hover:bg-red-700 text-white text-xs font-bold py-2 px-3 rounded">
+              Delete
+            </button>
+          </div>
+        `;
+        return card;
+      }
+
+      function submitTask(e) {
+        e.preventDefault();
+        const task = {
+          title: document.getElementById('task-title').value,
+          description: document.getElementById('task-desc').value,
+          deadline: document.getElementById('task-deadline').value,
+          difficulty: document.getElementById('task-difficulty').value
+        };
+
+        closeModal();
+        document.getElementById('task-container').innerHTML = '<div class="text-center text-gray-500 mt-10">Adding mission...</div>';
+        google.script.run.withSuccessHandler(render).addTask(task);
+        document.getElementById('add-task-form').reset();
+      }
+
+      function completeTask(id) {
+        // Optimistic UI update could happen here, but simplest to wait for server
+        document.getElementById('task-container').innerHTML = '<div class="text-center text-gray-500 mt-10">Verifying completion...</div>';
+        google.script.run.withSuccessHandler(render).markTaskComplete(id);
+      }
+
+      function deleteTask(id) {
+        if(!confirm('Are you sure you want to abort this mission?')) return;
+        document.getElementById('task-container').innerHTML = '<div class="text-center text-gray-500 mt-10">Deleting...</div>';
+        google.script.run.withSuccessHandler(render).deleteTask(id);
+      }
+
+      function openModal() {
+        document.getElementById('modal').classList.remove('hidden');
+      }
+
+      function closeModal() {
+        document.getElementById('modal').classList.add('hidden');
+      }
+
+      function handleError(err) {
+        console.error(err);
+        alert('Error: ' + err.message);
+      }
+
+      // Initial Load
+      loadData();
+    </script>
+  </body>
+</html>
